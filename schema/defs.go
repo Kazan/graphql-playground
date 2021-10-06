@@ -32,8 +32,8 @@ func NewSchema() (graphql.Schema, error) {
 									},
 								}),
 								Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-									for i := 0; i < 5; i++ {
-										time.Sleep(3 * time.Second)
+									for i := 0; i < 2; i++ {
+										time.Sleep(2 * time.Second)
 										fmt.Println("INNER RESOLVING...", i)
 									}
 
@@ -48,8 +48,8 @@ func NewSchema() (graphql.Schema, error) {
 						},
 					},
 					Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-						for i := 0; i < 5; i++ {
-							time.Sleep(3 * time.Second)
+						for i := 0; i < 2; i++ {
+							time.Sleep(2 * time.Second)
 							fmt.Println("ROOT RESOLVING...", i)
 						}
 						return "RootResolver", nil
