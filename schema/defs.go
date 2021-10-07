@@ -18,6 +18,25 @@ func NewSchema() (graphql.Schema, error) {
 						Fields: graphql.Fields{
 							"outerField": &graphql.Field{
 								Type: graphql.String,
+								Resolve: NewResolverPromise(func(p graphql.ResolveParams) (interface{}, error) {
+									for i := 0; i < 5; i++ {
+										time.Sleep(2 * time.Second)
+										fmt.Println("OUTER FIELD RESOLVING...", i)
+									}
+
+									return "OuterFieldResolver", nil
+								}).Resolve,
+							},
+							"anotherOuterField": &graphql.Field{
+								Type: graphql.String,
+								Resolve: NewResolverPromise(func(p graphql.ResolveParams) (interface{}, error) {
+									for i := 0; i < 5; i++ {
+										time.Sleep(2 * time.Second)
+										fmt.Println("ANOTHER OUTER FIELD RESOLVING...", i)
+									}
+
+									return "AnotherOuterFieldResolver", nil
+								}).Resolve,
 							},
 							"embedded": &graphql.Field{
 								Type: graphql.NewObject(graphql.ObjectConfig{
@@ -28,17 +47,25 @@ func NewSchema() (graphql.Schema, error) {
 										},
 										"innerField2": &graphql.Field{
 											Type: graphql.String,
+											Resolve: NewResolverPromise(func(p graphql.ResolveParams) (interface{}, error) {
+												for i := 0; i < 5; i++ {
+													time.Sleep(2 * time.Second)
+													fmt.Println("EMBEDDED FIELD RESOLVING...", i)
+												}
+
+												return "OuterFieldResolver", nil
+											}).Resolve,
 										},
 									},
 								}),
-								Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-									for i := 0; i < 2; i++ {
+								Resolve: NewResolverPromise(func(p graphql.ResolveParams) (interface{}, error) {
+									for i := 0; i < 5; i++ {
 										time.Sleep(2 * time.Second)
 										fmt.Println("INNER RESOLVING...", i)
 									}
 
 									return "InnerResolver", nil
-								},
+								}).Resolve,
 							},
 						},
 					}),
@@ -48,7 +75,7 @@ func NewSchema() (graphql.Schema, error) {
 						},
 					},
 					Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-						for i := 0; i < 2; i++ {
+						for i := 0; i < 5; i++ {
 							time.Sleep(2 * time.Second)
 							fmt.Println("ROOT RESOLVING...", i)
 						}
@@ -58,4 +85,45 @@ func NewSchema() (graphql.Schema, error) {
 			},
 		}),
 	})
+}
+
+type fnResolver func(p graphql.ResolveParams) (interface{}, error)
+
+func NewResolverPromise(fn fnResolver) *resolver {
+	return &resolver{
+		fn: fn,
+	}
+}
+
+type resolver struct {
+	fn fnResolver
+}
+
+func (r *resolver) ResolvePromise(p graphql.ResolveParams) (interface{}, error) {
+	type result struct {
+		data interface{}
+		err  error
+	}
+
+	ch := make(chan *result, 1)
+
+	go func() {
+		defer close(ch)
+		res, err := r.fn(p)
+		ch <- &result{data: res, err: err}
+	}()
+
+	return func() (interface{}, error) {
+		res := <-ch
+
+		if res.err != nil {
+			return nil, res.err
+		}
+
+		return res.data, nil
+	}, nil
+}
+
+func (r *resolver) Resolve(p graphql.ResolveParams) (interface{}, error) {
+	return r.fn(p)
 }
