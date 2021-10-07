@@ -15,7 +15,10 @@ import (
 )
 
 func main() {
-	s, _ := schema.NewSchema()
+	s, err := schema.NewSchema()
+	if err != nil {
+		panic(err)
+	}
 	codec := codec.NewJSONCodec()
 
 	mux := http.NewServeMux()
